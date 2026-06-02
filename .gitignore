@@ -2,3 +2,6 @@
 venv/
 .venv/
 .env
+
+# Dev Container
+.devcontainer/
