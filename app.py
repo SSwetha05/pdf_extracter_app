@@ -9,9 +9,7 @@ import tempfile
 from pdf2image import convert_from_path
 from io import BytesIO
 
-# =====================================================
 # CONFIG
-# =====================================================
 
 st.set_page_config(
     page_title="PDF to Excel Extractor",
@@ -24,9 +22,7 @@ st.write("""
 Upload scanned or normal PDFs and extract structured Excel data.
 """)
 
-# =====================================================
 # PDF TEXT EXTRACTION
-# =====================================================
 
 def extract_text_from_pdf(pdf_path):
 
@@ -50,9 +46,7 @@ def extract_text_from_pdf(pdf_path):
 
         st.error(f"Text Extraction Error: {e}")
 
-    # -------------------------------------------------
     # OCR FALLBACK
-    # -------------------------------------------------
 
     if len(full_text.strip()) < 50:
 
@@ -78,10 +72,7 @@ def extract_text_from_pdf(pdf_path):
 
     return full_text
 
-
-# =====================================================
 # CLEAN TEXT
-# =====================================================
 
 def clean_text(text):
 
@@ -104,10 +95,7 @@ def clean_text(text):
 
     return text.strip()
 
-
-# =====================================================
 # TABLE EXTRACTION
-# =====================================================
 
 def extract_structured_tables(pdf_path, fields):
 
@@ -128,9 +116,7 @@ def extract_structured_tables(pdf_path, fields):
                     if not table or len(table) < 2:
                         continue
 
-                    # ---------------------------------
                     # HEADERS
-                    # ---------------------------------
 
                     headers = []
 
@@ -143,9 +129,7 @@ def extract_structured_tables(pdf_path, fields):
                         else:
                             headers.append("")
 
-                    # ---------------------------------
                     # CHECK IF ACTUALLY STRUCTURED
-                    # ---------------------------------
 
                     matched_fields = 0
 
@@ -160,9 +144,7 @@ def extract_structured_tables(pdf_path, fields):
                                 matched_fields += 1
                                 break
 
-                    # ---------------------------------
                     # IMPORTANT FILTER
-                    # ---------------------------------
 
                     # Require at least 2 matching fields
                     # to qualify as a real structured table
@@ -172,9 +154,7 @@ def extract_structured_tables(pdf_path, fields):
 
                     structured_table_found = True
 
-                    # ---------------------------------
                     # PROCESS ROWS
-                    # ---------------------------------
 
                     for row_data in table[1:]:
 
@@ -227,19 +207,14 @@ def extract_structured_tables(pdf_path, fields):
 
         st.error(f"Table Extraction Error: {e}")
 
-    # -----------------------------------------
     # RETURN EMPTY IF NOT REAL TABLE
-    # -----------------------------------------
 
     if not structured_table_found:
         return pd.DataFrame()
 
     return pd.DataFrame(all_rows)
 
-
-# =====================================================
 # SPLIT LABEL-STYLE RECORDS
-# =====================================================
 
 def split_records(text):
 
@@ -255,13 +230,11 @@ def split_records(text):
 
         line_clean = line.strip()
 
-        # -----------------------------------------
         # TRUE RECORD START
         # Line contains ONLY serial number
         # Example:
         # 1
         # 2
-        # -----------------------------------------
 
         if re.match(r"^\d+$", line_clean):
 
@@ -281,17 +254,13 @@ def split_records(text):
 
             continue
 
-        # -----------------------------------------
         # ADD CONTENT
-        # -----------------------------------------
 
         if current_sr_no:
 
             current_record.append(line_clean)
 
-    # -----------------------------------------
     # LAST RECORD
-    # -----------------------------------------
 
     if current_record:
 
@@ -304,10 +273,7 @@ def split_records(text):
 
     return records
 
-
-# =====================================================
 # MULTI-LINE FIELD EXTRACTION
-# =====================================================
 
 def extract_field(block, field):
 
@@ -321,9 +287,7 @@ def extract_field(block, field):
 
         line_clean = line.strip()
 
-        # -----------------------------------------
         # FIELD START
-        # -----------------------------------------
 
         pattern = rf"^{re.escape(field)}\s*:\s*(.*)"
 
@@ -345,9 +309,7 @@ def extract_field(block, field):
 
             continue
 
-        # -----------------------------------------
         # CONTINUE CAPTURE
-        # -----------------------------------------
 
         if capturing:
 
@@ -373,9 +335,7 @@ def extract_field(block, field):
 
                 value_lines.append(line_clean)
 
-    # -----------------------------------------
     # FINAL CLEANING
-    # -----------------------------------------
 
     final_value = " ".join(value_lines)
 
@@ -387,10 +347,7 @@ def extract_field(block, field):
 
     return final_value
 
-
-# =====================================================
-# TYPE INFERENCE
-# =====================================================
+# TYPE INFERENCE - Can/ Should expand in future if required
 
 def infer_type(block):
 
@@ -407,10 +364,7 @@ def infer_type(block):
 
     return ""
 
-
-# =====================================================
 # PROCESS LABEL-STYLE RECORDS
-# =====================================================
 
 def process_records(records, fields):
 
@@ -424,9 +378,7 @@ def process_records(records, fields):
             "Sr No": record["Sr No"]
         }
 
-        # -----------------------------------------
         # EXTRACT FIELDS
-        # -----------------------------------------
 
         for field in fields:
 
@@ -443,10 +395,8 @@ def process_records(records, fields):
                     field
                 )
 
-        # -----------------------------------------
         # IMPORTANT:
         # REMOVE EMPTY/GARBAGE ROWS
-        # -----------------------------------------
 
         has_actual_data = False
 
@@ -467,10 +417,7 @@ def process_records(records, fields):
 
     return pd.DataFrame(final_rows)
 
-
-# =====================================================
 # STREAMLIT UI
-# =====================================================
 
 uploaded_file = st.file_uploader(
     "Upload PDF",
@@ -482,10 +429,7 @@ fields_input = st.text_input(
     placeholder="Name, Brand, Type"
 )
 
-
-# =====================================================
 # MAIN PROCESS
-# =====================================================
 
 if uploaded_file and fields_input:
 
@@ -493,9 +437,7 @@ if uploaded_file and fields_input:
 
         with st.spinner("Processing PDF..."):
 
-            # -----------------------------------------
             # SAVE TEMP PDF
-            # -----------------------------------------
 
             with tempfile.NamedTemporaryFile(
                 delete=False,
@@ -506,35 +448,27 @@ if uploaded_file and fields_input:
 
                 pdf_path = tmp.name
 
-            # -----------------------------------------
             # EXTRACT TEXT
-            # -----------------------------------------
 
             text = extract_text_from_pdf(pdf_path)
 
             cleaned_text = clean_text(text)
 
-            # -----------------------------------------
             # USER FIELDS
-            # -----------------------------------------
 
             fields = [
                 f.strip()
                 for f in fields_input.split(",")
             ]
 
-            # =========================================
             # TRY TABLE EXTRACTION FIRST
-            # =========================================
 
             table_df = extract_structured_tables(
                 pdf_path,
                 fields
             )
 
-            # =========================================
             # TABLE PDF
-            # =========================================
 
             if not table_df.empty:
 
@@ -544,9 +478,7 @@ if uploaded_file and fields_input:
 
                 extracted_df = table_df
 
-            # =========================================
             # LABEL-STYLE PDF
-            # =========================================
 
             else:
 
@@ -567,9 +499,7 @@ if uploaded_file and fields_input:
                     fields
                 )
 
-            # -----------------------------------------
             # KEEP ONLY REQUIRED COLUMNS
-            # -----------------------------------------
 
             final_columns = []
 
@@ -585,9 +515,7 @@ if uploaded_file and fields_input:
                 final_columns
             ]
 
-            # -----------------------------------------
             # DISPLAY OUTPUT
-            # -----------------------------------------
 
             st.subheader("Extracted Data")
 
@@ -596,9 +524,7 @@ if uploaded_file and fields_input:
                 width='stretch'
             )
 
-            # -----------------------------------------
             # EXCEL DOWNLOAD
-            # -----------------------------------------
 
             output = BytesIO()
 
@@ -615,7 +541,7 @@ if uploaded_file and fields_input:
             st.download_button(
                 label="Download Excel",
                 data=output.getvalue(),
-                file_name="extracted_data.xlsx",
+                file_name="Extracted_data.xlsx",
                 mime=(
                     "application/vnd.openxmlformats-"
                     "officedocument.spreadsheetml.sheet"
