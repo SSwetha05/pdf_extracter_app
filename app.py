@@ -103,6 +103,8 @@ def extract_structured_tables(pdf_path, fields):
 
     structured_table_found = False
 
+    previous_headers = None
+
     try:
 
         with pdfplumber.open(pdf_path) as pdf:
@@ -113,50 +115,65 @@ def extract_structured_tables(pdf_path, fields):
 
                 for table in tables:
 
-                    if not table or len(table) < 2:
+                    if not table or len(table) < 1:
                         continue
 
-                    # HEADERS
+                    first_row = table[0]
 
-                    headers = []
+                    # CLEAN HEADERS
+                    current_headers = []
 
-                    for h in table[0]:
+                    for h in first_row:
 
                         if h:
-                            headers.append(
+                            current_headers.append(
                                 str(h).strip().lower()
                             )
                         else:
-                            headers.append("")
+                            current_headers.append("")
 
-                    # CHECK IF ACTUALLY STRUCTURED
-
+                    # CHECK IF THIS PAGE HAS REAL HEADERS
                     matched_fields = 0
 
                     for field in fields:
 
                         field_lower = field.lower()
 
-                        for header in headers:
+                        for header in current_headers:
 
                             if field_lower in header:
 
                                 matched_fields += 1
                                 break
 
-                    # IMPORTANT FILTER
+                    # CASE 1:
+                    # PAGE HAS ACTUAL HEADERS
 
-                    # Require at least 2 matching fields
-                    # to qualify as a real structured table
+                    if matched_fields >= 2:
 
-                    if matched_fields < 2:
+                        headers = current_headers
+
+                        previous_headers = headers
+
+                        data_rows = table[1:]
+
+                        structured_table_found = True
+
+                    # CASE 2:
+                    # CONTINUATION PAGE WITHOUT HEADERS
+
+                    elif previous_headers:
+
+                        headers = previous_headers
+
+                        data_rows = table
+
+                    else:
                         continue
-
-                    structured_table_found = True
 
                     # PROCESS ROWS
 
-                    for row_data in table[1:]:
+                    for row_data in data_rows:
 
                         row = {}
 
@@ -206,8 +223,6 @@ def extract_structured_tables(pdf_path, fields):
     except Exception as e:
 
         st.error(f"Table Extraction Error: {e}")
-
-    # RETURN EMPTY IF NOT REAL TABLE
 
     if not structured_table_found:
         return pd.DataFrame()
@@ -488,10 +503,6 @@ if uploaded_file and fields_input:
 
                 records = split_records(
                     cleaned_text
-                )
-
-                st.write(
-                    f"Records Detected: {len(records)}"
                 )
 
                 extracted_df = process_records(
